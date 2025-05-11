@@ -6,11 +6,14 @@ const pptxgen = require('pptxgenjs');
 const bodyParser = require('body-parser');
 
 const app = express();
+const router = express.Router();
 const PORT = process.env.PORT || 3000;
+const BASE_PATH = process.env.BASE_PATH || '/';
 
 // Middleware
-app.use(express.static('public'));
-app.use(bodyParser.json());
+app.use(BASE_PATH,router);
+router.use(express.static('public'));
+router.use(bodyParser.json());
 
 // Lyrics directory - adjust path as needed
 const LYRICS_DIR = path.join(__dirname, 'lyrics');
@@ -25,7 +28,7 @@ async function ensureLyricsDir() {
 }
 
 // Get all available lyrics files
-app.get('/api/songs', async (req, res) => {
+router.get('/api/songs', async (req, res) => {
   try {
     await ensureLyricsDir();
     const files = await fs.readdir(LYRICS_DIR);
@@ -38,7 +41,7 @@ app.get('/api/songs', async (req, res) => {
 });
 
 // Get content of a specific song file
-app.get('/api/songs/:filename', async (req, res) => {
+router.get('/api/songs/:filename', async (req, res) => {
   try {
     const filePath = path.join(LYRICS_DIR, req.params.filename);
     const content = await fs.readFile(filePath, 'utf8');
@@ -50,7 +53,7 @@ app.get('/api/songs/:filename', async (req, res) => {
 });
 
 // Save updated song content
-app.post('/api/songs/:filename', async (req, res) => {
+router.post('/api/songs/:filename', async (req, res) => {
   try {
     const filePath = path.join(LYRICS_DIR, req.params.filename);
     await fs.writeFile(filePath, req.body.content);
@@ -62,7 +65,7 @@ app.post('/api/songs/:filename', async (req, res) => {
 });
 
 // Create a new song file
-app.post('/api/songs', async (req, res) => {
+router.post('/api/songs', async (req, res) => {
   try {
     await ensureLyricsDir();
     const fileName = req.body.fileName.endsWith('.txt') ? 
@@ -86,7 +89,7 @@ app.post('/api/songs', async (req, res) => {
 });
 
 // Generate PPTX from playlist
-app.post('/api/generate-pptx', async (req, res) => {
+router.post('/api/generate-pptx', async (req, res) => {
   try {
     const { playlist } = req.body;
     
