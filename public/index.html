@@ -209,7 +209,7 @@
             // Functions
             async function loadSongs() {
                 try {
-                    const response = await fetch('/api/songs');
+                    const response = await fetch('./api/songs');
                     const data = await response.json();
                     availableSongs = data.songs;
                     renderSongList();
@@ -239,7 +239,7 @@
                 }
                 
                 try {
-                    const response = await fetch(`/api/songs/${songFileName}`);
+                    const response = await fetch(`./api/songs/${songFileName}`);
                     const data = await response.json();
                     songEditorEl.value = data.content;
                     currentSong = songFileName;
@@ -258,7 +258,7 @@
                 if (!currentSong) return;
                 
                 try {
-                    const response = await fetch(`/api/songs/${currentSong}`, {
+                    const response = await fetch(`./api/songs/${currentSong}`, {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json'
@@ -369,50 +369,50 @@
                     generateBtn.disabled = true;
                     generateBtn.textContent = 'Generating...';
                     
-                    // Create a form to handle the file download
-                    const form = document.createElement('form');
-                    form.method = 'POST';
-                    form.action = '/api/generate-pptx';
-                    form.style.display = 'none';
+                    ////////V1////////////////
+                    // // Create a form to handle the file download
+                    // const form = document.createElement('form');
+                    // form.method = 'POST';
+                    // form.action = './api/generate-pptx';
+                    // form.style.display = 'none';
                     
-                    const input = document.createElement('input');
-                    input.type = 'hidden';
-                    input.name = 'playlist';
-                    input.value = JSON.stringify(playlist);
+                    // const input = document.createElement('input');
+                    // input.type = 'hidden';
+                    // input.name = 'playlist';
+                    // input.value = JSON.stringify(playlist);
                     
-                    form.appendChild(input);
-                    document.body.appendChild(form);
+                    // form.appendChild(input);
+                    // document.body.appendChild(form);
                     // Submit the form to trigger file download
                     // form.submit();
 
-                    //////gavr////////////////////
-                    fetch('/api/generate-pptx', {
-  method: 'POST',
-  headers: {
-    'Content-Type': 'application/json'
-  },
-  body: JSON.stringify({ playlist })
-})
-.then(response => {
-  if (!response.ok) {
-    throw new Error('Network response was not ok');
-  }
-  return response.blob();
-})
-.then(blob => {
-  const url = window.URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = 'presentation.pptx'; // Or use filename from Content-Disposition header
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  window.URL.revokeObjectURL(url);
-})
-.catch(error => {
-  console.error('Download failed:', error);
-});
-
+                    //////V2////////////////////
+                    fetch('./api/generate-pptx', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ playlist })
+                    })
+                    .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    return response.blob();
+                    })
+                    .then(blob => {
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'presentation.pptx'; // Or use filename from Content-Disposition header
+                    document.body.appendChild(a);
+                    a.click();
+                    a.remove();
+                    window.URL.revokeObjectURL(url);
+                    })
+                    .catch(error => {
+                    console.error('Download failed:', error);
+                    });
                     //////////////////////////////
                     
                     // Remove the form
@@ -441,7 +441,7 @@
                 const fileName = songName.endsWith('.txt') ? songName : `${songName}.txt`;
                 
                 try {
-                    const response = await fetch('/api/songs', {
+                    const response = await fetch('./api/songs', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json'
