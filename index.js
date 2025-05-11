@@ -1,0 +1,165 @@
+// app.js - Main application file
+const express = require('express');
+const fs = require('fs/promises');
+const path = require('path');
+const pptxgen = require('pptxgenjs');
+const bodyParser = require('body-parser');
+
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+// Middleware
+app.use(express.static('public'));
+app.use(bodyParser.json());
+
+// Lyrics directory - adjust path as needed
+const LYRICS_DIR = path.join(__dirname, 'lyrics');
+
+// Ensure lyrics directory exists
+async function ensureLyricsDir() {
+  try {
+    await fs.access(LYRICS_DIR);
+  } catch {
+    await fs.mkdir(LYRICS_DIR, { recursive: true });
+  }
+}
+
+// Get all available lyrics files
+app.get('/api/songs', async (req, res) => {
+  try {
+    await ensureLyricsDir();
+    const files = await fs.readdir(LYRICS_DIR);
+    const txtFiles = files.filter(file => file.endsWith('.txt'));
+    res.json({ songs: txtFiles });
+  } catch (error) {
+    console.error('Error reading songs:', error);
+    res.status(500).json({ error: 'Failed to read songs directory' });
+  }
+});
+
+// Get content of a specific song file
+app.get('/api/songs/:filename', async (req, res) => {
+  try {
+    const filePath = path.join(LYRICS_DIR, req.params.filename);
+    const content = await fs.readFile(filePath, 'utf8');
+    res.json({ content });
+  } catch (error) {
+    console.error('Error reading song file:', error);
+    res.status(404).json({ error: 'Song file not found' });
+  }
+});
+
+// Save updated song content
+app.post('/api/songs/:filename', async (req, res) => {
+  try {
+    const filePath = path.join(LYRICS_DIR, req.params.filename);
+    await fs.writeFile(filePath, req.body.content);
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error saving song file:', error);
+    res.status(500).json({ error: 'Failed to save song file' });
+  }
+});
+
+// Create a new song file
+app.post('/api/songs', async (req, res) => {
+  try {
+    await ensureLyricsDir();
+    const fileName = req.body.fileName.endsWith('.txt') ? 
+      req.body.fileName : `${req.body.fileName}.txt`;
+    const filePath = path.join(LYRICS_DIR, fileName);
+    
+    // Check if file already exists
+    try {
+      await fs.access(filePath);
+      return res.status(400).json({ error: 'File already exists' });
+    } catch {
+      // File doesn't exist, we can proceed
+    }
+    
+    await fs.writeFile(filePath, req.body.content || '');
+    res.json({ success: true, fileName });
+  } catch (error) {
+    console.error('Error creating song file:', error);
+    res.status(500).json({ error: 'Failed to create song file' });
+  }
+});
+
+// Generate PPTX from playlist
+app.post('/api/generate-pptx', async (req, res) => {
+  try {
+    const { playlist } = req.body;
+    
+    // Create a new presentation
+    const pres = new pptxgen();
+    
+    // Process each song in the playlist
+    console.log(JSON.stringify(playlist));
+    for (const songFile of playlist) {
+      const filePath = path.join(LYRICS_DIR, songFile);
+      const content = await fs.readFile(filePath, 'utf8');
+      
+      // Split the content by slides (typically separated by blank lines)
+      const slides = content.split(/\n\s*\n/).filter(slide => slide.trim());
+      
+      // Add song title slide
+      const titleSlide = pres.addSlide();
+      titleSlide.addText(songFile.replace('.txt', ''), {
+        x: 1,
+        y: 2.5,
+        fontSize: 44,
+        color: '363636',
+        bold: true,
+        align: 'center'
+      });
+      
+      // Add each lyric slide
+      for (const slideContent of slides) {
+        if (slideContent.trim()) {
+          const slide = pres.addSlide();
+          slide.addText(slideContent.trim(), {
+            x: 0.5,
+            y: 0.5,
+            w: '95%',
+            h: '90%',
+            fontSize: 28,
+            color: '363636',
+            align: 'center',
+            valign: 'middle'
+          });
+        }
+      }
+    }
+    
+    // Save the presentation temporarily
+    const outputPath = path.join(__dirname, 'temp', 'presentation.pptx');
+    
+    // Ensure temp directory exists
+    await fs.mkdir(path.join(__dirname, 'temp'), { recursive: true });
+    
+    // Write file as buffer
+    const pptxBuffer = await pres.write({ outputType: 'nodebuffer' });
+    await fs.writeFile(outputPath, pptxBuffer);
+    
+    // Send the file and then delete it
+    res.download(outputPath, 'lyrics_presentation.pptx', async (err) => {
+      if (err) console.error('Error sending file:', err);
+      
+      // Attempt to delete the temporary file
+      try {
+        await fs.unlink(outputPath);
+      } catch (deleteErr) {
+        console.error('Error deleting temporary file:', deleteErr);
+      }
+    });
+    
+  } catch (error) {
+    console.error('Error generating presentation:', error);
+    res.status(500).json({ error: 'Failed to generate presentation' });
+  }
+});
+
+// Start the server
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});

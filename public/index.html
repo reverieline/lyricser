@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lyrics Presentation Generator</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: Arial, sans-serif;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .toolbar {
+            background-color: #f0f0f0;
+            padding: 10px;
+            display: flex;
+            justify-content: space-between;
+            border-bottom: 1px solid #ccc;
+        }
+        
+        .main-container {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+        
+        .panel {
+            flex: 1;
+            padding: 10px;
+            border-right: 1px solid #ccc;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+        
+        .panel-title {
+            font-weight: bold;
+            margin-bottom: 10px;
+            padding-bottom: 5px;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .panel-content {
+            flex: 1;
+            overflow-y: auto;
+        }
+        
+        .song-list {
+            list-style: none;
+        }
+        
+        .song-list li {
+            padding: 8px;
+            margin: 2px 0;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+        
+        .song-list li:hover {
+            background-color: #f0f0f0;
+        }
+        
+        .song-list li.selected {
+            background-color: #e0e0ff;
+        }
+        
+        .playlist-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px;
+            margin: 2px 0;
+            background-color: #f9f9f9;
+            border-radius: 4px;
+        }
+        
+        .remove-btn {
+            color: #ff3333;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        
+        textarea {
+            width: 100%;
+            height: 100%;
+            border: 1px solid #ccc;
+            padding: 10px;
+            resize: none;
+            font-family: monospace;
+        }
+        
+        .btn {
+            padding: 8px 16px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        
+        .btn:hover {
+            background-color: #45a049;
+        }
+        
+        .btn:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        
+        .add-song-form {
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid #eee;
+        }
+        
+        .add-song-form input {
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 8px;
+        }
+        
+        .btn-small {
+            padding: 4px 8px;
+            font-size: 0.8em;
+        }
+        
+        .actions {
+            margin-top: 10px;
+            display: flex;
+            gap: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="toolbar">
+        <h1>Lyrics Presentation Generator</h1>
+        <button id="generate-btn" class="btn">Generate Presentation</button>
+    </div>
+    
+    <div class="main-container">
+        <!-- Left Panel: Available Songs -->
+        <div class="panel">
+            <div class="panel-title">Available Songs</div>
+            <div class="panel-content">
+                <ul id="song-list" class="song-list"></ul>
+                
+                <div class="add-song-form">
+                    <div class="panel-title">Add New Song</div>
+                    <input type="text" id="new-song-name" placeholder="Song title">
+                    <div class="actions">
+                        <button id="create-song-btn" class="btn btn-small">Create</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Middle Panel: Song Editor -->
+        <div class="panel">
+            <div class="panel-title">Song Editor <span id="current-song-name"></span></div>
+            <div class="panel-content">
+                <textarea id="song-editor" placeholder="No song selected"></textarea>
+            </div>
+            <div class="actions">
+                <button id="save-song-btn" class="btn btn-small" disabled>Save Changes</button>
+                <button id="add-to-playlist-btn" class="btn btn-small" disabled>Add to Playlist</button>
+            </div>
+        </div>
+        
+        <!-- Right Panel: Playlist -->
+        <div class="panel">
+            <div class="panel-title">Playlist</div>
+            <div class="panel-content">
+                <ul id="playlist" class="song-list"></ul>
+            </div>
+            <div class="actions">
+                <button id="clear-playlist-btn" class="btn btn-small">Clear Playlist</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Elements
+            const songListEl = document.getElementById('song-list');
+            const songEditorEl = document.getElementById('song-editor');
+            const currentSongNameEl = document.getElementById('current-song-name');
+            const saveSongBtn = document.getElementById('save-song-btn');
+            const addToPlaylistBtn = document.getElementById('add-to-playlist-btn');
+            const playlistEl = document.getElementById('playlist');
+            const clearPlaylistBtn = document.getElementById('clear-playlist-btn');
+            const generateBtn = document.getElementById('generate-btn');
+            const newSongNameEl = document.getElementById('new-song-name');
+            const createSongBtn = document.getElementById('create-song-btn');
+            
+            // State
+            let availableSongs = [];
+            let currentSong = null;
+            let playlist = [];
+            let hasUnsavedChanges = false;
+            
+            // Functions
+            async function loadSongs() {
+                try {
+                    const response = await fetch('/api/songs');
+                    const data = await response.json();
+                    availableSongs = data.songs;
+                    renderSongList();
+                } catch (error) {
+                    console.error('Error loading songs:', error);
+                    alert('Failed to load songs. Please check the console for details.');
+                }
+            }
+            
+            function renderSongList() {
+                songListEl.innerHTML = '';
+                availableSongs.forEach(song => {
+                    const li = document.createElement('li');
+                    li.textContent = song;
+                    li.onclick = () => loadSongContent(song);
+                    if (currentSong === song) {
+                        li.classList.add('selected');
+                    }
+                    songListEl.appendChild(li);
+                });
+            }
+            
+            async function loadSongContent(songFileName) {
+                // Check for unsaved changes
+                if (hasUnsavedChanges && !confirm('You have unsaved changes. Continue without saving?')) {
+                    return;
+                }
+                
+                try {
+                    const response = await fetch(`/api/songs/${songFileName}`);
+                    const data = await response.json();
+                    songEditorEl.value = data.content;
+                    currentSong = songFileName;
+                    currentSongNameEl.textContent = `(${songFileName})`;
+                    saveSongBtn.disabled = true;
+                    addToPlaylistBtn.disabled = false;
+                    hasUnsavedChanges = false;
+                    renderSongList(); // Refresh to show selected state
+                } catch (error) {
+                    console.error('Error loading song content:', error);
+                    alert('Failed to load song content.');
+                }
+            }
+            
+            async function saveSongContent() {
+                if (!currentSong) return;
+                
+                try {
+                    const response = await fetch(`/api/songs/${currentSong}`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            content: songEditorEl.value
+                        })
+                    });
+                    
+                    const data = await response.json();
+                    if (data.success) {
+                        saveSongBtn.disabled = true;
+                        hasUnsavedChanges = false;
+                        alert('Song saved successfully!');
+                    } else {
+                        alert('Failed to save song.');
+                    }
+                } catch (error) {
+                    console.error('Error saving song:', error);
+                    alert('Failed to save song. Please check the console for details.');
+                }
+            }
+            
+            function addToPlaylist() {
+                if (!currentSong) return;
+                
+                // Check if song is already in playlist
+                if (!playlist.includes(currentSong)) {
+                    playlist.push(currentSong);
+                    renderPlaylist();
+                } else {
+                    alert('This song is already in the playlist.');
+                }
+            }
+            
+            function renderPlaylist() {
+                playlistEl.innerHTML = '';
+                playlist.forEach((song, index) => {
+                    const li = document.createElement('li');
+                    li.className = 'playlist-item';
+                    
+                    const songName = document.createElement('span');
+                    songName.textContent = song;
+                    
+                    const actions = document.createElement('div');
+                    
+                    const upButton = document.createElement('span');
+                    upButton.innerHTML = '↑';
+                    upButton.style.marginRight = '10px';
+                    upButton.style.cursor = 'pointer';
+                    upButton.onclick = (e) => {
+                        e.stopPropagation();
+                        if (index > 0) {
+                            [playlist[index], playlist[index-1]] = [playlist[index-1], playlist[index]];
+                            renderPlaylist();
+                        }
+                    };
+                    
+                    const downButton = document.createElement('span');
+                    downButton.innerHTML = '↓';
+                    downButton.style.marginRight = '10px';
+                    downButton.style.cursor = 'pointer';
+                    downButton.onclick = (e) => {
+                        e.stopPropagation();
+                        if (index < playlist.length - 1) {
+                            [playlist[index], playlist[index+1]] = [playlist[index+1], playlist[index]];
+                            renderPlaylist();
+                        }
+                    };
+                    
+                    const removeButton = document.createElement('span');
+                    removeButton.className = 'remove-btn';
+                    removeButton.textContent = '×';
+                    removeButton.onclick = (e) => {
+                        e.stopPropagation();
+                        playlist = playlist.filter((_, i) => i !== index);
+                        renderPlaylist();
+                    };
+                    
+                    actions.appendChild(upButton);
+                    actions.appendChild(downButton);
+                    actions.appendChild(removeButton);
+                    
+                    li.appendChild(songName);
+                    li.appendChild(actions);
+                    
+                    li.onclick = () => loadSongContent(song);
+                    
+                    playlistEl.appendChild(li);
+                });
+            }
+            
+            async function generatePresentation() {
+                if (playlist.length === 0) {
+                    alert('Please add songs to the playlist first.');
+                    return;
+                }
+                
+                try {
+                    // If there are unsaved changes, ask to save first
+                    if (hasUnsavedChanges) {
+                        if (confirm('You have unsaved changes. Would you like to save before generating the presentation?')) {
+                            await saveSongContent();
+                        }
+                    }
+                    
+                    // Show loading state
+                    generateBtn.disabled = true;
+                    generateBtn.textContent = 'Generating...';
+                    
+                    // Create a form to handle the file download
+                    const form = document.createElement('form');
+                    form.method = 'POST';
+                    form.action = '/api/generate-pptx';
+                    form.style.display = 'none';
+                    
+                    const input = document.createElement('input');
+                    input.type = 'hidden';
+                    input.name = 'playlist';
+                    input.value = JSON.stringify(playlist);
+                    
+                    form.appendChild(input);
+                    document.body.appendChild(form);
+                    // Submit the form to trigger file download
+                    // form.submit();
+
+                    //////gavr////////////////////
+                    fetch('/api/generate-pptx', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify({ playlist })
+})
+.then(response => {
+  if (!response.ok) {
+    throw new Error('Network response was not ok');
+  }
+  return response.blob();
+})
+.then(blob => {
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'presentation.pptx'; // Or use filename from Content-Disposition header
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  window.URL.revokeObjectURL(url);
+})
+.catch(error => {
+  console.error('Download failed:', error);
+});
+
+                    //////////////////////////////
+                    
+                    // Remove the form
+                    setTimeout(() => {
+                        document.body.removeChild(form);
+                        generateBtn.disabled = false;
+                        generateBtn.textContent = 'Generate Presentation';
+                    }, 1000);
+                    
+                } catch (error) {
+                    console.error('Error generating presentation:', error);
+                    alert('Failed to generate presentation. Please check the console for details.');
+                    generateBtn.disabled = false;
+                    generateBtn.textContent = 'Generate Presentation';
+                }
+            }
+            
+            async function createNewSong() {
+                const songName = newSongNameEl.value.trim();
+                if (!songName) {
+                    alert('Please enter a song name.');
+                    return;
+                }
+                
+                // Ensure the song name has a .txt extension
+                const fileName = songName.endsWith('.txt') ? songName : `${songName}.txt`;
+                
+                try {
+                    const response = await fetch('/api/songs', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            fileName: fileName,
+                            content: ''
+                        })
+                    });
+                    
+                    const data = await response.json();
+                    if (data.success) {
+                        newSongNameEl.value = '';
+                        await loadSongs();
+                        loadSongContent(fileName);
+                    } else {
+                        alert(data.error || 'Failed to create song.');
+                    }
+                } catch (error) {
+                    console.error('Error creating song:', error);
+                    alert('Failed to create song. Please check the console for details.');
+                }
+            }
+            
+            // Event Listeners
+            saveSongBtn.addEventListener('click', saveSongContent);
+            addToPlaylistBtn.addEventListener('click', addToPlaylist);
+            clearPlaylistBtn.addEventListener('click', () => {
+                if (confirm('Are you sure you want to clear the playlist?')) {
+                    playlist = [];
+                    renderPlaylist();
+                }
+            });
+            
+            generateBtn.addEventListener('click', generatePresentation);
+            createSongBtn.addEventListener('click', createNewSong);
+            
+            songEditorEl.addEventListener('input', () => {
+                if (currentSong) {
+                    saveSongBtn.disabled = false;
+                    hasUnsavedChanges = true;
+                }
+            });
+            
+            // Load initial data
+            loadSongs();
+        });
+    </script>
+</body>
+</html>
