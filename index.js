@@ -151,6 +151,8 @@ router.post('/api/generate-pptx', async (req, res) => {
       ],
       // slideNumber: { x: 0.5, y: "90%" }
     });
+
+
     
     // Process each song in the playlist
     for (const songFile of playlist) {
@@ -170,6 +172,9 @@ router.post('/api/generate-pptx', async (req, res) => {
       //   bold: true,
       //   align: 'center'
       // });
+
+      //Empty slide at the begining of each song
+      pres.addSlide({ masterName: "MASTER_SLIDE" });
       
       // Add each lyric slide
       for (const slideContent of slides) {
@@ -189,6 +194,9 @@ router.post('/api/generate-pptx', async (req, res) => {
         }
       }
     }
+
+    //Empty slide at the end of all songs
+    pres.addSlide({ masterName: "MASTER_SLIDE" });
     
     // Save the presentation temporarily
     const outputPath = path.join(__dirname, 'temp', 'presentation.pptx');
