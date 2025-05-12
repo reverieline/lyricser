@@ -272,7 +272,7 @@
                     if (data.success) {
                         saveSongBtn.disabled = true;
                         hasUnsavedChanges = false;
-                        alert('Song saved successfully!');
+                        // alert('Song saved successfully!');
                     } else {
                         alert('Failed to save song.');
                     }
@@ -285,13 +285,13 @@
             function addToPlaylist() {
                 if (!currentSong) return;
                 
-                // Check if song is already in playlist
-                if (!playlist.includes(currentSong)) {
+                // // Check if song is already in playlist
+                // if (!playlist.includes(currentSong)) {
                     playlist.push(currentSong);
                     renderPlaylist();
-                } else {
-                    alert('This song is already in the playlist.');
-                }
+                // } else {
+                //     alert('This song is already in the playlist.');
+                // }
             }
             
             function renderPlaylist() {
