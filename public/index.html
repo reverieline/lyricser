@@ -150,8 +150,6 @@
         <div class="panel">
             <div class="panel-title">Available Songs</div>
             <div class="panel-content">
-                <ul id="song-list" class="song-list"></ul>
-                
                 <div class="add-song-form">
                     <div class="panel-title">Add New Song</div>
                     <input type="text" id="new-song-name" placeholder="Song title">
@@ -159,29 +157,31 @@
                         <button id="create-song-btn" class="btn btn-small">Create</button>
                     </div>
                 </div>
+
+                <ul id="song-list" class="song-list"></ul>
             </div>
         </div>
         
         <!-- Middle Panel: Song Editor -->
         <div class="panel">
             <div class="panel-title">Song Editor <span id="current-song-name"></span></div>
-            <div class="panel-content">
-                <textarea id="song-editor" placeholder="No song selected"></textarea>
-            </div>
             <div class="actions">
                 <button id="save-song-btn" class="btn btn-small" disabled>Save Changes</button>
                 <button id="add-to-playlist-btn" class="btn btn-small" disabled>Add to Playlist</button>
+            </div>
+            <div class="panel-content">
+                <textarea id="song-editor" placeholder="No song selected"></textarea>
             </div>
         </div>
         
         <!-- Right Panel: Playlist -->
         <div class="panel">
             <div class="panel-title">Playlist</div>
-            <div class="panel-content">
-                <ul id="playlist" class="song-list"></ul>
-            </div>
             <div class="actions">
                 <button id="clear-playlist-btn" class="btn btn-small">Clear Playlist</button>
+            </div>
+            <div class="panel-content">
+                <ul id="playlist" class="song-list"></ul>
             </div>
         </div>
     </div>
@@ -409,6 +409,9 @@
                     a.click();
                     a.remove();
                     window.URL.revokeObjectURL(url);
+                    
+                    generateBtn.disabled = false;
+                    generateBtn.textContent = 'Generate Presentation';
                     })
                     .catch(error => {
                     console.error('Download failed:', error);

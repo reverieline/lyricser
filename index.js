@@ -95,9 +95,42 @@ router.post('/api/generate-pptx', async (req, res) => {
     
     // Create a new presentation
     const pres = new pptxgen();
+    const _ph=pres.presLayout.height;
+    const _pw=pres.presLayout.width;
+
+    // Master slide
+    pres.defineSlideMaster({
+      title: "MASTER_SLIDE",
+      background: { color: "000000" },
+      objects: [
+        { placeholder: { 
+          options: { 
+            name: "body", 
+            type: "body",
+            x: "0%",
+            y: "0%",
+            w: "100%",
+            h: "100%",
+            fontSize: 40,
+            color: "FFFFFF",
+            align: "center",
+            valign: "middle",
+           } } },
+           {
+            image: {
+              x: "2%",
+              y: "80%",
+              w: 1.0,
+              // h: 1.0,
+              path: "./public/logo.png",
+              opacity: 0.5                          // 50% transparency
+            }
+          },
+      ],
+      // slideNumber: { x: 0.5, y: "90%" }
+    });
     
     // Process each song in the playlist
-    console.log(JSON.stringify(playlist));
     for (const songFile of playlist) {
       const filePath = path.join(LYRICS_DIR, songFile);
       const content = await fs.readFile(filePath, 'utf8');
@@ -106,30 +139,31 @@ router.post('/api/generate-pptx', async (req, res) => {
       const slides = content.split(/\n\s*\n/).filter(slide => slide.trim());
       
       // Add song title slide
-      const titleSlide = pres.addSlide();
-      titleSlide.addText(songFile.replace('.txt', ''), {
-        x: 1,
-        y: 2.5,
-        fontSize: 44,
-        color: '363636',
-        bold: true,
-        align: 'center'
-      });
+      // const titleSlide = pres.addSlide();
+      // titleSlide.addText(songFile.replace('.txt', ''), {
+      //   x: 1,
+      //   y: 2.5,
+      //   fontSize: 44,
+      //   color: '363636',
+      //   bold: true,
+      //   align: 'center'
+      // });
       
       // Add each lyric slide
       for (const slideContent of slides) {
         if (slideContent.trim()) {
-          const slide = pres.addSlide();
-          slide.addText(slideContent.trim(), {
-            x: 0.5,
-            y: 0.5,
-            w: '95%',
-            h: '90%',
-            fontSize: 28,
-            color: '363636',
-            align: 'center',
-            valign: 'middle'
-          });
+          const slide = pres.addSlide({ masterName: "MASTER_SLIDE" });
+          slide.addText(slideContent,{placeholder: 'body'});
+          // slide.addText(slideContent.trim(), {
+          //   x: 0.5,
+          //   y: 0.5,
+          //   w: '95%',
+          //   h: '90%',
+          //   fontSize: 28,
+          //   color: '363636',
+          //   align: 'center',
+          //   valign: 'middle'
+          // });
         }
       }
     }
