@@ -4,11 +4,14 @@ const fs = require('fs/promises');
 const path = require('path');
 const pptxgen = require('pptxgenjs');
 const bodyParser = require('body-parser');
+const auth = require('basic-auth');
 
 const app = express();
 const router = express.Router();
 const PORT = process.env.PORT || 3000;
 const BASE_PATH = process.env.BASE_PATH || '/';
+const ADMIN_USERNAME = process.env.ADMIN_USERNAME || '';
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || '';
 
 // Middleware
 app.use(BASE_PATH,router);
@@ -17,6 +20,23 @@ router.use(bodyParser.json());
 
 // Lyrics directory - adjust path as needed
 const LYRICS_DIR = path.join(__dirname, 'lyrics');
+
+
+// Basic Auth
+const basicAuth = (req, res, next) => {
+  const user = auth(req);
+
+  //NO RESTRICTIONS
+  if(ADMIN_USERNAME=='')
+    return next();
+
+  if (!user || user.name !== ADMIN_USERNAME || user.pass !== ADMIN_PASSWORD) {
+    res.set('WWW-Authenticate', 'Basic realm="edit"');
+    return res.status(401).send('Authentication required.');
+  }
+
+  next();
+};
 
 // Ensure lyrics directory exists
 async function ensureLyricsDir() {
@@ -53,6 +73,7 @@ router.get('/api/songs/:filename', async (req, res) => {
 });
 
 // Save updated song content
+router.use('/api/songs/:filename', basicAuth);
 router.post('/api/songs/:filename', async (req, res) => {
   try {
     const filePath = path.join(LYRICS_DIR, req.params.filename);
@@ -65,6 +86,7 @@ router.post('/api/songs/:filename', async (req, res) => {
 });
 
 // Create a new song file
+router.use('/api/songs', basicAuth);
 router.post('/api/songs', async (req, res) => {
   try {
     await ensureLyricsDir();
