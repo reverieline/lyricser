@@ -1,0 +1,14 @@
+services:
+  lyricser:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "3001:3000"
+    volumes:
+      - .:/usr/src/app
+      - /usr/src/app/node_modules
+    environment:
+      - NODE_ENV=development
+      - BASE_PATH=/
+      - ADMIN_USERNAME=admin
+      - ADMIN_PASSWORD=admin
