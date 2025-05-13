@@ -234,10 +234,11 @@
                 availableSongs.forEach(song => {
                     const li = document.createElement('li');
                     li.classList.add('song-item'); // Add a class for styling
+                    li.onclick = () => loadSongContent(song);
 
                     const span = document.createElement('span'); // Wrap song text in a span
                     span.textContent = song;
-                    span.onclick = () => loadSongContent(song);
+                    // span.onclick = () => loadSongContent(song);
                     li.appendChild(span);
 
                     if (currentSong === song) {
