@@ -427,13 +427,25 @@
                     if (!response.ok) {
                         throw new Error('Network response was not ok');
                     }
-                    return response.blob();
+
+                    // Extract filename from Content-Disposition header
+                    const disposition = response.headers.get('Content-Disposition');
+                    let filename = 'presentation.pptx'; // default
+
+                    if (disposition && disposition.includes('filename=')) {
+                        const match = disposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
+                        if (match && match[1]) {
+                            filename = match[1].replace(/['"]/g, '');
+                        }
+                    }
+
+                    return response.blob().then(blob => ({ blob, filename }));
                     })
-                    .then(blob => {
+                    .then(({blob,filename}) => {
                     const url = window.URL.createObjectURL(blob);
                     const a = document.createElement('a');
                     a.href = url;
-                    a.download = 'presentation.pptx'; // Or use filename from Content-Disposition header
+                    a.download = filename;
                     document.body.appendChild(a);
                     a.click();
                     a.remove();
