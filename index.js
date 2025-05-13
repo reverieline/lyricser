@@ -47,6 +47,20 @@ async function ensureLyricsDir() {
   }
 }
 
+// Make output presentation path
+function makePresentationFilename() {
+  const now = new Date();
+  
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0'); // Months are 0-indexed
+  const day = String(now.getDate()).padStart(2, '0');
+
+  const hours = String(now.getHours()).padStart(2, '0');
+  const minutes = String(now.getMinutes()).padStart(2, '0');
+
+  return `Songs-${year}-${month}-${day}_${hours}${minutes}`;
+}
+
 // Get all available lyrics files
 router.get('/api/songs', async (req, res) => {
   try {
@@ -199,7 +213,8 @@ router.post('/api/generate-pptx', async (req, res) => {
     pres.addSlide({ masterName: "MASTER_SLIDE" });
     
     // Save the presentation temporarily
-    const outputPath = path.join(__dirname, 'temp', 'presentation.pptx');
+    // const outputPath = path.join(__dirname, 'temp', 'presentation.pptx');
+    const outputPath = path.join(__dirname, 'temp', makePresentationFilename()+'.pptx');
     
     // Ensure temp directory exists
     await fs.mkdir(path.join(__dirname, 'temp'), { recursive: true });
@@ -209,7 +224,7 @@ router.post('/api/generate-pptx', async (req, res) => {
     await fs.writeFile(outputPath, pptxBuffer);
     
     // Send the file and then delete it
-    res.download(outputPath, 'lyrics_presentation.pptx', async (err) => {
+    res.download(outputPath, null, async (err) => {
       if (err) console.error('Error sending file:', err);
       
       // Attempt to delete the temporary file
