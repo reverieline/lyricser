@@ -62,6 +62,11 @@
             margin: 2px 0;
             cursor: pointer;
             border-radius: 4px;
+
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            list-style: none;
         }
         
         .song-list li:hover {
@@ -70,6 +75,11 @@
         
         .song-list li.selected {
             background-color: #e0e0ff;
+        }
+
+        .song-list li span {
+            flex-grow: 1;
+            cursor: pointer;
         }
         
         .playlist-item {
@@ -223,11 +233,25 @@
                 songListEl.innerHTML = '';
                 availableSongs.forEach(song => {
                     const li = document.createElement('li');
-                    li.textContent = song;
-                    li.onclick = () => loadSongContent(song);
+                    li.classList.add('song-item'); // Add a class for styling
+
+                    const span = document.createElement('span'); // Wrap song text in a span
+                    span.textContent = song;
+                    span.onclick = () => loadSongContent(song);
+                    li.appendChild(span);
+
                     if (currentSong === song) {
                         li.classList.add('selected');
                     }
+
+                    // Create the button
+                    const plus = document.createElement('button');
+                    plus.classList.add("btn-small");
+                    plus.classList.add("btn");
+                    plus.textContent = 'Add to Playlist';
+                    plus.onclick = () => streightToPlaylist(song);
+                    li.appendChild(plus);
+
                     songListEl.appendChild(li);
                 });
             }
@@ -292,6 +316,11 @@
                 // } else {
                 //     alert('This song is already in the playlist.');
                 // }
+            }
+
+            function streightToPlaylist(song) {
+                playlist.push(song);
+                renderPlaylist();
             }
             
             function renderPlaylist() {
