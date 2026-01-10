@@ -9,6 +9,6 @@ services:
       - /usr/src/app/node_modules
     environment:
       - NODE_ENV=development
-      - BASE_PATH=/
-      - ADMIN_USERNAME=admin
-      - ADMIN_PASSWORD=admin
+      - BASE_PATH=/lyricser
+      - ADMIN_USERNAME=sc
+      - ADMIN_PASSWORD=sc123698745
