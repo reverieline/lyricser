@@ -3,7 +3,7 @@ const express = require('express');
 const fs = require('fs/promises');
 const path = require('path');
 const pptxgen = require('pptxgenjs');
-const { Document, Packer, Paragraph, TextRun, HeadingLevel } = require('docx');
+const { Document, Packer, Paragraph, TextRun, HeadingLevel, Bookmark, InternalHyperlink, PageReference, Tab, LeaderType, TabStopType, UnderlineType, sectionPageSizeDefaults } = require('docx');
 const bodyParser = require('body-parser');
 const auth = require('basic-auth');
 
@@ -103,34 +103,131 @@ function makeExportFilename(extension) {
   return `Songs-${year}-${month}-${day}_${hours}${minutes}${normalizedExtension}`;
 }
 
-async function buildDocxBuffer(playlist) {
-  const sections = [];
+function createSongBookmarkId(index) {
+  return `song-${String(index + 1).padStart(3, '0')}`;
+}
 
-  for (const songFile of playlist) {
+function createContentsEntry(title, bookmarkId) {
+  return new Paragraph({
+    tabStops: [
+      {
+        type: TabStopType.RIGHT,
+        position: 9000,
+        leader: LeaderType.DOT,
+      },
+    ],
+    spacing: { after: 80 },
+    children: [
+      new InternalHyperlink({
+        anchor: bookmarkId,
+        children: [
+          new TextRun({
+            text: title,
+            color: '0563C1',
+            underline: { type: UnderlineType.SINGLE },
+          }),
+        ],
+      }),
+      new Tab(),
+      new PageReference(bookmarkId, undefined, { hyperlink: true }),
+    ],
+  });
+}
+
+function createSongTitleParagraph(title, bookmarkId) {
+  return new Paragraph({
+    children: [
+      new Bookmark({
+        id: bookmarkId,
+        children: [new TextRun({ text: title, bold: true, size: 28 })],
+      }),
+    ],
+    heading: HeadingLevel.HEADING_1,
+  });
+}
+
+async function buildDocxBuffer(playlist) {
+  const a4PageSize = {
+    width: sectionPageSizeDefaults.WIDTH,
+    height: sectionPageSizeDefaults.HEIGHT,
+  };
+
+  const narrowMargins = {
+    top: 720,
+    right: 720,
+    bottom: 720,
+    left: 720,
+    header: 360,
+    footer: 360,
+    gutter: 0,
+  };
+
+  const songs = [];
+
+  for (const [index, songFile] of playlist.entries()) {
     const filePath = path.join(LYRICS_DIR, songFile);
     const content = await fs.readFile(filePath, 'utf8');
     const title = path.basename(songFile, path.extname(songFile));
     const lines = content.split(/\r?\n/);
 
-    if (sections.length > 0) {
-      sections.push(new Paragraph({ text: '' }));
+    songs.push({
+      title,
+      bookmarkId: createSongBookmarkId(index),
+      lines,
+    });
+  }
+
+  const tocSectionChildren = [
+    new Paragraph({
+      text: 'Table of Contents',
+      bold: true,
+      size: 32,
+      alignment: 'center',
+    }),
+    new Paragraph({ text: '' }),
+    ...songs.map(({ title, bookmarkId }) => createContentsEntry(title, bookmarkId)),
+  ];
+
+  const songSectionChildren = [];
+
+  for (const song of songs) {
+    songSectionChildren.push(createSongTitleParagraph(song.title, song.bookmarkId));
+    songSectionChildren.push(new Paragraph({ text: '' }));
+
+    for (const line of song.lines) {
+      songSectionChildren.push(new Paragraph({ text: line }));
     }
 
-    sections.push(
-      new Paragraph({
-        children: [new TextRun({ text: title, bold: true, size: 28 })],
-        heading: HeadingLevel.HEADING_1,
-      })
-    );
-    sections.push(new Paragraph({ text: '' }));
-
-    for (const line of lines) {
-      sections.push(new Paragraph({ text: line }));
-    }
+    songSectionChildren.push(new Paragraph({ text: '' }));
   }
 
   const document = new Document({
-    sections: [{ children: sections }],
+    features: { updateFields: true },
+    sections: [
+      {
+        properties: {
+          page: {
+            size: a4PageSize,
+            margin: narrowMargins,
+          },
+        },
+        children: tocSectionChildren,
+      },
+      {
+        properties: {
+          page: {
+            size: a4PageSize,
+            margin: narrowMargins,
+          },
+          column: {
+            count: 2,
+            equalWidth: true,
+            space: 720,
+          },
+        },
+        children: songSectionChildren,
+      },
+    ],
   });
 
   return Packer.toBuffer(document);
