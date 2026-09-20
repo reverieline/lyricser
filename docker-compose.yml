@@ -2,6 +2,7 @@ services:
   lyricser:
     build: .
     restart: unless-stopped
+    command: sh -c "npm install --no-audit --no-fund && node index.js"
     ports:
       - "3001:3000"
     volumes:

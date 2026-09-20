@@ -3,6 +3,7 @@ const express = require('express');
 const fs = require('fs/promises');
 const path = require('path');
 const pptxgen = require('pptxgenjs');
+const { Document, Packer, Paragraph, TextRun, HeadingLevel } = require('docx');
 const bodyParser = require('body-parser');
 const auth = require('basic-auth');
 
@@ -87,18 +88,52 @@ async function ensureLyricsDir() {
   }
 }
 
-// Make output presentation path
-function makePresentationFilename() {
+// Make output export path
+function makeExportFilename(extension) {
   const now = new Date();
-  
+
   const year = now.getFullYear();
   const month = String(now.getMonth() + 1).padStart(2, '0'); // Months are 0-indexed
   const day = String(now.getDate()).padStart(2, '0');
 
   const hours = String(now.getHours()).padStart(2, '0');
   const minutes = String(now.getMinutes()).padStart(2, '0');
+  const normalizedExtension = extension.startsWith('.') ? extension : `.${extension}`;
 
-  return `Songs-${year}-${month}-${day}_${hours}${minutes}`;
+  return `Songs-${year}-${month}-${day}_${hours}${minutes}${normalizedExtension}`;
+}
+
+async function buildDocxBuffer(playlist) {
+  const sections = [];
+
+  for (const songFile of playlist) {
+    const filePath = path.join(LYRICS_DIR, songFile);
+    const content = await fs.readFile(filePath, 'utf8');
+    const title = path.basename(songFile, path.extname(songFile));
+    const lines = content.split(/\r?\n/);
+
+    if (sections.length > 0) {
+      sections.push(new Paragraph({ text: '' }));
+    }
+
+    sections.push(
+      new Paragraph({
+        children: [new TextRun({ text: title, bold: true, size: 28 })],
+        heading: HeadingLevel.HEADING_1,
+      })
+    );
+    sections.push(new Paragraph({ text: '' }));
+
+    for (const line of lines) {
+      sections.push(new Paragraph({ text: line }));
+    }
+  }
+
+  const document = new Document({
+    sections: [{ children: sections }],
+  });
+
+  return Packer.toBuffer(document);
 }
 
 // Get all available lyrics files
@@ -340,7 +375,7 @@ router.post('/api/generate-pptx', async (req, res) => {
     
     // Save the presentation temporarily
     // const outputPath = path.join(__dirname, 'temp', 'presentation.pptx');
-    const outputPath = path.join(__dirname, 'temp', makePresentationFilename()+'.pptx');
+    const outputPath = path.join(__dirname, 'temp', makeExportFilename('.pptx'));
     
     // Ensure temp directory exists
     await fs.mkdir(path.join(__dirname, 'temp'), { recursive: true });
@@ -364,6 +399,26 @@ router.post('/api/generate-pptx', async (req, res) => {
   } catch (error) {
     console.error('Error generating presentation:', error);
     res.status(500).json({ error: 'Failed to generate presentation' });
+  }
+});
+
+router.post('/api/generate-docx', async (req, res) => {
+  try {
+    const { playlist } = req.body;
+
+    if (!Array.isArray(playlist) || playlist.length === 0) {
+      return res.status(400).json({ error: 'Playlist is required' });
+    }
+
+    const docxBuffer = await buildDocxBuffer(playlist);
+    const filename = makeExportFilename('.docx');
+
+    res.attachment(filename);
+    res.type('application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+    res.send(docxBuffer);
+  } catch (error) {
+    console.error('Error generating DOCX:', error);
+    res.status(500).json({ error: 'Failed to generate DOCX' });
   }
 });
 
