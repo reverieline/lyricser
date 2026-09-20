@@ -20,7 +20,26 @@ router.use(bodyParser.json());
 
 // Lyrics directory - adjust path as needed
 const LYRICS_DIR = path.join(__dirname, 'lyrics');
+const NORMALIZED_LYRICS_DIR = path.resolve(LYRICS_DIR);
 
+function resolveSongFilePath(fileName) {
+  if (
+    typeof fileName !== 'string' ||
+    path.basename(fileName) !== fileName ||
+    !fileName.endsWith('.txt')
+  ) {
+    return null;
+  }
+
+  const filePath = path.resolve(NORMALIZED_LYRICS_DIR, fileName);
+  const relativePath = path.relative(NORMALIZED_LYRICS_DIR, filePath);
+
+  if (relativePath.startsWith('..') || path.isAbsolute(relativePath)) {
+    return null;
+  }
+
+  return filePath;
+}
 
 // Basic Auth
 const basicAuth = (req, res, next) => {
@@ -77,12 +96,20 @@ router.get('/api/songs', async (req, res) => {
 // Get content of a specific song file
 router.get('/api/songs/:filename', async (req, res) => {
   try {
-    const filePath = path.join(LYRICS_DIR, req.params.filename);
+    const filePath = resolveSongFilePath(req.params.filename);
+    if (!filePath) {
+      return res.status(400).json({ error: 'Invalid song filename' });
+    }
+
     const content = await fs.readFile(filePath, 'utf8');
     res.json({ content });
   } catch (error) {
+    if (error.code === 'ENOENT') {
+      return res.status(404).json({ error: 'Song file not found' });
+    }
+
     console.error('Error reading song file:', error);
-    res.status(404).json({ error: 'Song file not found' });
+    res.status(500).json({ error: 'Failed to read song file' });
   }
 });
 
@@ -90,7 +117,11 @@ router.get('/api/songs/:filename', async (req, res) => {
 router.use('/api/songs/:filename', basicAuth);
 router.post('/api/songs/:filename', async (req, res) => {
   try {
-    const filePath = path.join(LYRICS_DIR, req.params.filename);
+    const filePath = resolveSongFilePath(req.params.filename);
+    if (!filePath) {
+      return res.status(400).json({ error: 'Invalid song filename' });
+    }
+
     await fs.writeFile(filePath, req.body.content);
     res.json({ success: true });
   } catch (error) {
@@ -104,10 +135,25 @@ router.use('/api/songs', basicAuth);
 router.post('/api/songs', async (req, res) => {
   try {
     await ensureLyricsDir();
-    const fileName = req.body.fileName.endsWith('.txt') ? 
-      req.body.fileName : `${req.body.fileName}.txt`;
-    const filePath = path.join(LYRICS_DIR, fileName);
-    
+
+    if (typeof req.body.fileName !== 'string') {
+      return res.status(400).json({ error: 'Invalid song filename' });
+    }
+
+    const normalizedFileName = req.body.fileName.trim();
+    if (!normalizedFileName) {
+      return res.status(400).json({ error: 'Invalid song filename' });
+    }
+
+    const requestedFileName = normalizedFileName.endsWith('.txt')
+      ? normalizedFileName
+      : `${normalizedFileName}.txt`;
+    const filePath = resolveSongFilePath(requestedFileName);
+
+    if (!filePath) {
+      return res.status(400).json({ error: 'Invalid song filename' });
+    }
+
     // Check if file already exists
     try {
       await fs.access(filePath);
@@ -115,12 +161,31 @@ router.post('/api/songs', async (req, res) => {
     } catch {
       // File doesn't exist, we can proceed
     }
-    
+
     await fs.writeFile(filePath, req.body.content || '');
-    res.json({ success: true, fileName });
+    res.json({ success: true, fileName: requestedFileName });
   } catch (error) {
     console.error('Error creating song file:', error);
     res.status(500).json({ error: 'Failed to create song file' });
+  }
+});
+
+router.delete('/api/songs/:filename', async (req, res) => {
+  try {
+    const filePath = resolveSongFilePath(req.params.filename);
+    if (!filePath) {
+      return res.status(400).json({ error: 'Invalid song filename' });
+    }
+
+    await fs.unlink(filePath);
+    res.json({ success: true });
+  } catch (error) {
+    if (error.code === 'ENOENT') {
+      return res.status(404).json({ error: 'Song file not found' });
+    }
+
+    console.error('Error deleting song file:', error);
+    res.status(500).json({ error: 'Failed to delete song file' });
   }
 });
 

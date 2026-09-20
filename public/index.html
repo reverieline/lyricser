@@ -119,7 +119,15 @@
         .btn:hover {
             background-color: #45a049;
         }
-        
+
+        .btn-danger {
+            background-color: #d9534f;
+        }
+
+        .btn-danger:hover {
+            background-color: #c9302c;
+        }
+
         .btn:disabled {
             background-color: #cccccc;
             cursor: not-allowed;
@@ -178,6 +186,7 @@
             <div class="actions">
                 <button id="save-song-btn" class="btn btn-small" disabled>Save Changes</button>
                 <button id="add-to-playlist-btn" class="btn btn-small" disabled>Add to Playlist</button>
+                <button id="delete-song-btn" class="btn btn-small btn-danger" disabled>Delete</button>
             </div>
             <div class="panel-content">
                 <textarea id="song-editor" placeholder="No song selected"></textarea>
@@ -204,6 +213,7 @@
             const currentSongNameEl = document.getElementById('current-song-name');
             const saveSongBtn = document.getElementById('save-song-btn');
             const addToPlaylistBtn = document.getElementById('add-to-playlist-btn');
+            const deleteSongBtn = document.getElementById('delete-song-btn');
             const playlistEl = document.getElementById('playlist');
             const clearPlaylistBtn = document.getElementById('clear-playlist-btn');
             const generateBtn = document.getElementById('generate-btn');
@@ -228,6 +238,16 @@
                     console.error('Error loading songs:', error);
                     alert('Failed to load songs. Please check the console for details.');
                 }
+            }
+
+            function clearSongSelection() {
+                currentSong = null;
+                currentSongNameEl.textContent = '';
+                songEditorEl.value = '';
+                saveSongBtn.disabled = true;
+                addToPlaylistBtn.disabled = true;
+                deleteSongBtn.disabled = true;
+                hasUnsavedChanges = false;
             }
 
             function getFilteredSongs() {
@@ -287,13 +307,14 @@
                 }
                 
                 try {
-                    const response = await fetch(`./api/songs/${songFileName}`);
+                    const response = await fetch(`./api/songs/${encodeURIComponent(songFileName)}`);
                     const data = await response.json();
                     songEditorEl.value = data.content;
                     currentSong = songFileName;
                     currentSongNameEl.textContent = `(${songFileName})`;
                     saveSongBtn.disabled = true;
                     addToPlaylistBtn.disabled = false;
+                    deleteSongBtn.disabled = false;
                     hasUnsavedChanges = false;
                     renderSongList(); // Refresh to show selected state
                 } catch (error) {
@@ -304,9 +325,9 @@
             
             async function saveSongContent() {
                 if (!currentSong) return;
-                
+
                 try {
-                    const response = await fetch(`./api/songs/${currentSong}`, {
+                    const response = await fetch(`./api/songs/${encodeURIComponent(currentSong)}`, {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json'
@@ -315,7 +336,7 @@
                             content: songEditorEl.value
                         })
                     });
-                    
+
                     const data = await response.json();
                     if (data.success) {
                         saveSongBtn.disabled = true;
@@ -329,7 +350,42 @@
                     alert('Failed to save song. Please check the console for details.');
                 }
             }
-            
+
+            async function deleteSongContent() {
+                if (!currentSong) return;
+
+                const deletedSong = currentSong;
+                const confirmMessage = hasUnsavedChanges
+                    ? `Delete ${deletedSong}? You have unsaved changes that will be lost. This will remove the song from the library and playlist and cannot be undone.`
+                    : `Delete ${deletedSong}? This will remove the song from the library and playlist and cannot be undone.`;
+
+                if (!confirm(confirmMessage)) {
+                    return;
+                }
+
+                try {
+                    const response = await fetch(`./api/songs/${encodeURIComponent(deletedSong)}`, {
+                        method: 'DELETE'
+                    });
+                    const data = await response.json();
+
+                    if (!response.ok || !data.success) {
+                        alert(data.error || 'Failed to delete song.');
+                        return;
+                    }
+
+                    availableSongs = availableSongs.filter(song => song !== deletedSong);
+                    playlist = playlist.filter(song => song !== deletedSong);
+                    clearSongSelection();
+                    renderPlaylist();
+                    renderSongList();
+                    await loadSongs();
+                } catch (error) {
+                    console.error('Error deleting song:', error);
+                    alert('Failed to delete song. Please check the console for details.');
+                }
+            }
+
             function addToPlaylist() {
                 if (!currentSong) return;
                 
@@ -536,6 +592,7 @@
             // Event Listeners
             saveSongBtn.addEventListener('click', saveSongContent);
             addToPlaylistBtn.addEventListener('click', addToPlaylist);
+            deleteSongBtn.addEventListener('click', deleteSongContent);
             clearPlaylistBtn.addEventListener('click', () => {
                 if (confirm('Are you sure you want to clear the playlist?')) {
                     playlist = [];
