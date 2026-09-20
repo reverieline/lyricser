@@ -162,7 +162,7 @@
             <div class="panel-content">
                 <div class="add-song-form">
                     <div class="panel-title">Add New Song</div>
-                    <input type="text" id="new-song-name" placeholder="Song title">
+                    <input type="text" id="new-song-name" placeholder="Song title or filter songs">
                     <div class="actions">
                         <button id="create-song-btn" class="btn btn-small">Create</button>
                     </div>
@@ -215,7 +215,8 @@
             let currentSong = null;
             let playlist = [];
             let hasUnsavedChanges = false;
-            
+            let songFilter = '';
+
             // Functions
             async function loadSongs() {
                 try {
@@ -228,10 +229,32 @@
                     alert('Failed to load songs. Please check the console for details.');
                 }
             }
-            
+
+            function getFilteredSongs() {
+                const query = songFilter.trim().toLowerCase();
+                if (!query) {
+                    return availableSongs;
+                }
+
+                return availableSongs.filter(song => song.toLowerCase().includes(query));
+            }
+
             function renderSongList() {
                 songListEl.innerHTML = '';
-                availableSongs.forEach(song => {
+                const songsToShow = getFilteredSongs();
+
+                if (songsToShow.length === 0) {
+                    const emptyState = document.createElement('li');
+                    emptyState.textContent = songFilter.trim()
+                        ? 'No songs match the current filter.'
+                        : 'No songs available.';
+                    emptyState.style.cursor = 'default';
+                    emptyState.style.color = '#666';
+                    songListEl.appendChild(emptyState);
+                    return;
+                }
+
+                songsToShow.forEach(song => {
                     const li = document.createElement('li');
                     li.classList.add('song-item'); // Add a class for styling
                     li.onclick = () => loadSongContent(song);
@@ -499,7 +522,6 @@
                     
                     const data = await response.json();
                     if (data.success) {
-                        newSongNameEl.value = '';
                         await loadSongs();
                         loadSongContent(fileName);
                     } else {
@@ -523,14 +545,19 @@
             
             generateBtn.addEventListener('click', generatePresentation);
             createSongBtn.addEventListener('click', createNewSong);
-            
+
+            newSongNameEl.addEventListener('input', () => {
+                songFilter = newSongNameEl.value;
+                renderSongList();
+            });
+
             songEditorEl.addEventListener('input', () => {
                 if (currentSong) {
                     saveSongBtn.disabled = false;
                     hasUnsavedChanges = true;
                 }
             });
-            
+
             // Load initial data
             loadSongs();
         });
