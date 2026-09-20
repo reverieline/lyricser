@@ -573,6 +573,7 @@
             
             function renderPlaylist() {
                 playlistEl.innerHTML = '';
+                clearPlaylistBtn.disabled = playlist.length === 0;
                 playlist.forEach((song, index) => {
                     const li = document.createElement('li');
                     li.className = 'playlist-item';
@@ -799,6 +800,7 @@
             });
 
             // Load initial data
+            renderPlaylist();
             loadSongs();
         });
     </script>
