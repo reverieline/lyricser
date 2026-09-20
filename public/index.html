@@ -128,39 +128,82 @@
             background-color: #c9302c;
         }
 
+        .btn-help {
+            background-color: #5b6b7a;
+        }
+
+        .btn-help:hover {
+            background-color: #4a5967;
+        }
+
         .btn:disabled {
             background-color: #cccccc;
             cursor: not-allowed;
         }
-        
+
         .add-song-form {
             margin-top: 10px;
             padding-top: 10px;
             border-top: 1px solid #eee;
         }
-        
+
         .add-song-form input {
             width: 100%;
             padding: 8px;
             margin-bottom: 8px;
         }
-        
+
         .btn-small {
             padding: 4px 8px;
             font-size: 0.8em;
         }
-        
+
         .actions {
             margin-top: 10px;
             display: flex;
             gap: 10px;
+            flex-wrap: wrap;
         }
 
-        .editor-note {
-            margin-top: 8px;
-            font-size: 0.85em;
-            color: #666;
-            line-height: 1.4;
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.55);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 16px;
+            z-index: 1000;
+        }
+
+        .modal {
+            width: min(520px, 100%);
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 12px 32px rgba(0, 0, 0, 0.28);
+            padding: 18px;
+        }
+
+        .modal-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 14px;
+        }
+
+        .modal-header h2 {
+            font-size: 1.1rem;
+        }
+
+        .modal-body ul {
+            padding-left: 20px;
+            display: grid;
+            gap: 10px;
+        }
+
+        .modal-body li {
+            line-height: 1.5;
         }
     </style>
 </head>
@@ -195,10 +238,10 @@
                 <button id="rename-song-btn" class="btn btn-small" disabled>Rename</button>
                 <button id="add-to-playlist-btn" class="btn btn-small" disabled>Add to Playlist</button>
                 <button id="delete-song-btn" class="btn btn-small btn-danger" disabled>Delete</button>
+                <button id="editor-help-btn" class="btn btn-small btn-help" type="button">Help</button>
             </div>
             <div class="panel-content">
                 <textarea id="song-editor" placeholder="No song selected"></textarea>
-                <div class="editor-note">Tip: start a line with <strong>#</strong> to keep it in the editor but exclude it from the generated presentation.</div>
             </div>
         </div>
         
@@ -210,6 +253,21 @@
             </div>
             <div class="panel-content">
                 <ul id="playlist" class="song-list"></ul>
+            </div>
+        </div>
+    </div>
+
+    <div id="editor-help-modal" class="modal-overlay" hidden>
+        <div class="modal" role="dialog" aria-modal="true" aria-labelledby="editor-help-title">
+            <div class="modal-header">
+                <h2 id="editor-help-title">Editor Tips</h2>
+                <button id="close-editor-help-btn" class="btn btn-small btn-help" type="button">Close</button>
+            </div>
+            <div class="modal-body">
+                <ul>
+                    <li>Start a line with <strong>#</strong> to keep it visible in the editor but exclude it from the generated presentation.</li>
+                    <li>Use blank lines to split one song into separate slides.</li>
+                </ul>
             </div>
         </div>
     </div>
@@ -229,7 +287,10 @@
             const generateBtn = document.getElementById('generate-btn');
             const newSongNameEl = document.getElementById('new-song-name');
             const createSongBtn = document.getElementById('create-song-btn');
-            
+            const editorHelpBtn = document.getElementById('editor-help-btn');
+            const editorHelpModal = document.getElementById('editor-help-modal');
+            const closeEditorHelpBtn = document.getElementById('close-editor-help-btn');
+
             // State
             let availableSongs = [];
             let currentSong = null;
@@ -259,6 +320,16 @@
                 addToPlaylistBtn.disabled = true;
                 deleteSongBtn.disabled = true;
                 hasUnsavedChanges = false;
+            }
+
+            function openEditorHelp() {
+                editorHelpModal.hidden = false;
+                closeEditorHelpBtn.focus();
+            }
+
+            function closeEditorHelp() {
+                editorHelpModal.hidden = true;
+                editorHelpBtn.focus();
             }
 
             function getFilteredSongs() {
@@ -674,6 +745,18 @@
             
             generateBtn.addEventListener('click', generatePresentation);
             createSongBtn.addEventListener('click', createNewSong);
+            editorHelpBtn.addEventListener('click', openEditorHelp);
+            closeEditorHelpBtn.addEventListener('click', closeEditorHelp);
+            editorHelpModal.addEventListener('click', (event) => {
+                if (event.target === editorHelpModal) {
+                    closeEditorHelp();
+                }
+            });
+            document.addEventListener('keydown', (event) => {
+                if (event.key === 'Escape' && !editorHelpModal.hidden) {
+                    closeEditorHelp();
+                }
+            });
 
             newSongNameEl.addEventListener('input', () => {
                 songFilter = newSongNameEl.value;
