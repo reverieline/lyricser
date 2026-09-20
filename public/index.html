@@ -185,6 +185,7 @@
             <div class="panel-title">Song Editor <span id="current-song-name"></span></div>
             <div class="actions">
                 <button id="save-song-btn" class="btn btn-small" disabled>Save Changes</button>
+                <button id="rename-song-btn" class="btn btn-small" disabled>Rename</button>
                 <button id="add-to-playlist-btn" class="btn btn-small" disabled>Add to Playlist</button>
                 <button id="delete-song-btn" class="btn btn-small btn-danger" disabled>Delete</button>
             </div>
@@ -212,6 +213,7 @@
             const songEditorEl = document.getElementById('song-editor');
             const currentSongNameEl = document.getElementById('current-song-name');
             const saveSongBtn = document.getElementById('save-song-btn');
+            const renameSongBtn = document.getElementById('rename-song-btn');
             const addToPlaylistBtn = document.getElementById('add-to-playlist-btn');
             const deleteSongBtn = document.getElementById('delete-song-btn');
             const playlistEl = document.getElementById('playlist');
@@ -245,6 +247,7 @@
                 currentSongNameEl.textContent = '';
                 songEditorEl.value = '';
                 saveSongBtn.disabled = true;
+                renameSongBtn.disabled = true;
                 addToPlaylistBtn.disabled = true;
                 deleteSongBtn.disabled = true;
                 hasUnsavedChanges = false;
@@ -313,6 +316,7 @@
                     currentSong = songFileName;
                     currentSongNameEl.textContent = `(${songFileName})`;
                     saveSongBtn.disabled = true;
+                    renameSongBtn.disabled = false;
                     addToPlaylistBtn.disabled = false;
                     deleteSongBtn.disabled = false;
                     hasUnsavedChanges = false;
@@ -348,6 +352,65 @@
                 } catch (error) {
                     console.error('Error saving song:', error);
                     alert('Failed to save song. Please check the console for details.');
+                }
+            }
+
+            async function renameSongContent() {
+                if (!currentSong) return;
+
+                const currentTitle = currentSong.endsWith('.txt')
+                    ? currentSong.slice(0, -4)
+                    : currentSong;
+                const newTitleInput = prompt('Enter a new song title:', currentTitle);
+
+                if (newTitleInput === null) {
+                    return;
+                }
+
+                const newTitle = newTitleInput.trim();
+                if (!newTitle) {
+                    alert('Please enter a song title.');
+                    return;
+                }
+
+                const newFileName = newTitle.endsWith('.txt') ? newTitle : `${newTitle}.txt`;
+                if (newFileName === currentSong) {
+                    alert('The song name is unchanged.');
+                    return;
+                }
+
+                if (!confirm(`Rename ${currentSong} to ${newFileName}? This will update the file name and playlist references.`)) {
+                    return;
+                }
+
+                try {
+                    const response = await fetch(`./api/songs/${encodeURIComponent(currentSong)}/rename`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            newTitle
+                        })
+                    });
+
+                    const data = await response.json();
+                    if (!response.ok || !data.success) {
+                        alert(data.error || 'Failed to rename song.');
+                        return;
+                    }
+
+                    const oldSong = currentSong;
+                    const renamedSong = data.fileName || newFileName;
+                    availableSongs = availableSongs.map(song => song === oldSong ? renamedSong : song);
+                    playlist = playlist.map(song => song === oldSong ? renamedSong : song);
+                    currentSong = renamedSong;
+                    currentSongNameEl.textContent = `(${renamedSong})`;
+                    renderSongList();
+                    renderPlaylist();
+                } catch (error) {
+                    console.error('Error renaming song:', error);
+                    alert('Failed to rename song. Please check the console for details.');
                 }
             }
 
@@ -591,6 +654,7 @@
             
             // Event Listeners
             saveSongBtn.addEventListener('click', saveSongContent);
+            renameSongBtn.addEventListener('click', renameSongContent);
             addToPlaylistBtn.addEventListener('click', addToPlaylist);
             deleteSongBtn.addEventListener('click', deleteSongContent);
             clearPlaylistBtn.addEventListener('click', () => {

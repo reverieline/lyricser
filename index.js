@@ -22,23 +22,44 @@ router.use(bodyParser.json());
 const LYRICS_DIR = path.join(__dirname, 'lyrics');
 const NORMALIZED_LYRICS_DIR = path.resolve(LYRICS_DIR);
 
-function resolveSongFilePath(fileName) {
+function normalizeSongFileName(fileName) {
+  if (typeof fileName !== 'string') {
+    return null;
+  }
+
+  const trimmed = fileName.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  const canonicalFileName = trimmed.endsWith('.txt') ? trimmed : `${trimmed}.txt`;
+  if (path.basename(canonicalFileName) !== canonicalFileName) {
+    return null;
+  }
+
+  const baseName = path.basename(canonicalFileName, '.txt');
   if (
-    typeof fileName !== 'string' ||
-    path.basename(fileName) !== fileName ||
-    !fileName.endsWith('.txt')
+    !baseName ||
+    /[<>:"/\\|?*\x00-\x1F]/.test(baseName) ||
+    /[. ]$/.test(baseName) ||
+    /^(con|prn|aux|nul|com[1-9]|lpt[1-9])$/i.test(baseName)
   ) {
     return null;
   }
 
-  const filePath = path.resolve(NORMALIZED_LYRICS_DIR, fileName);
+  const filePath = path.resolve(NORMALIZED_LYRICS_DIR, canonicalFileName);
   const relativePath = path.relative(NORMALIZED_LYRICS_DIR, filePath);
 
   if (relativePath.startsWith('..') || path.isAbsolute(relativePath)) {
     return null;
   }
 
-  return filePath;
+  return { fileName: canonicalFileName, filePath };
+}
+
+function resolveSongFilePath(fileName) {
+  const normalized = normalizeSongFileName(fileName);
+  return normalized ? normalized.filePath : null;
 }
 
 // Basic Auth
@@ -136,23 +157,13 @@ router.post('/api/songs', async (req, res) => {
   try {
     await ensureLyricsDir();
 
-    if (typeof req.body.fileName !== 'string') {
+    const normalized = normalizeSongFileName(req.body.fileName);
+
+    if (!normalized) {
       return res.status(400).json({ error: 'Invalid song filename' });
     }
 
-    const normalizedFileName = req.body.fileName.trim();
-    if (!normalizedFileName) {
-      return res.status(400).json({ error: 'Invalid song filename' });
-    }
-
-    const requestedFileName = normalizedFileName.endsWith('.txt')
-      ? normalizedFileName
-      : `${normalizedFileName}.txt`;
-    const filePath = resolveSongFilePath(requestedFileName);
-
-    if (!filePath) {
-      return res.status(400).json({ error: 'Invalid song filename' });
-    }
+    const { fileName: requestedFileName, filePath } = normalized;
 
     // Check if file already exists
     try {
@@ -186,6 +197,50 @@ router.delete('/api/songs/:filename', async (req, res) => {
 
     console.error('Error deleting song file:', error);
     res.status(500).json({ error: 'Failed to delete song file' });
+  }
+});
+
+router.post('/api/songs/:filename/rename', async (req, res) => {
+  try {
+    const sourcePath = resolveSongFilePath(req.params.filename);
+    if (!sourcePath) {
+      return res.status(400).json({ error: 'Invalid song filename' });
+    }
+
+    const normalized = normalizeSongFileName(req.body.newTitle);
+    if (!normalized) {
+      return res.status(400).json({ error: 'Invalid song filename' });
+    }
+
+    const sourceFileName = path.basename(sourcePath);
+    const { fileName: targetFileName, filePath: targetPath } = normalized;
+
+    try {
+      await fs.access(sourcePath);
+    } catch (error) {
+      if (error.code === 'ENOENT') {
+        return res.status(404).json({ error: 'Song file not found' });
+      }
+
+      throw error;
+    }
+
+    if (targetFileName === sourceFileName) {
+      return res.json({ success: true, fileName: sourceFileName });
+    }
+
+    try {
+      await fs.access(targetPath);
+      return res.status(409).json({ error: 'A song with that name already exists' });
+    } catch {
+      // Destination does not exist, we can proceed.
+    }
+
+    await fs.rename(sourcePath, targetPath);
+    res.json({ success: true, fileName: targetFileName });
+  } catch (error) {
+    console.error('Error renaming song file:', error);
+    res.status(500).json({ error: 'Failed to rename song file' });
   }
 });
 
