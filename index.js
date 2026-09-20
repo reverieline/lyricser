@@ -3,7 +3,7 @@ const express = require('express');
 const fs = require('fs/promises');
 const path = require('path');
 const pptxgen = require('pptxgenjs');
-const { Document, Packer, Paragraph, TextRun, HeadingLevel, Bookmark, InternalHyperlink, PageReference, Tab, LeaderType, TabStopType, UnderlineType, sectionPageSizeDefaults } = require('docx');
+const { Document, Packer, Paragraph, TextRun, HeadingLevel, Bookmark, InternalHyperlink, PageReference, Tab, LeaderType, TabStopType, UnderlineType, sectionPageSizeDefaults, TableOfContents, AlignmentType } = require('docx');
 const bodyParser = require('body-parser');
 const auth = require('basic-auth');
 
@@ -107,32 +107,6 @@ function createSongBookmarkId(index) {
   return `song-${String(index + 1).padStart(3, '0')}`;
 }
 
-function createContentsEntry(title, bookmarkId) {
-  return new Paragraph({
-    tabStops: [
-      {
-        type: TabStopType.RIGHT,
-        position: 9000,
-        leader: LeaderType.DOT,
-      },
-    ],
-    spacing: { after: 80 },
-    children: [
-      new InternalHyperlink({
-        anchor: bookmarkId,
-        children: [
-          new TextRun({
-            text: title,
-            color: '0563C1',
-            underline: { type: UnderlineType.SINGLE },
-          }),
-        ],
-      }),
-      new Tab(),
-      new PageReference(bookmarkId, undefined, { hyperlink: true }),
-    ],
-  });
-}
 
 function createSongTitleParagraph(title, bookmarkId) {
   return new Paragraph({
@@ -177,17 +151,6 @@ async function buildDocxBuffer(playlist) {
     });
   }
 
-  const tocSectionChildren = [
-    new Paragraph({
-      text: 'Table of Contents',
-      bold: true,
-      size: 32,
-      alignment: 'center',
-    }),
-    new Paragraph({ text: '' }),
-    ...songs.map(({ title, bookmarkId }) => createContentsEntry(title, bookmarkId)),
-  ];
-
   const songSectionChildren = [];
 
   for (const song of songs) {
@@ -211,7 +174,23 @@ async function buildDocxBuffer(playlist) {
             margin: narrowMargins,
           },
         },
-        children: tocSectionChildren,
+        children: [
+          new Paragraph({
+              alignment: AlignmentType.CENTER,
+              children: [
+                  new TextRun({
+                      text: "Table of Content",
+                      bold: true,
+                      size: 56,
+                  }),
+              ],
+          }),
+          new TableOfContents("Contents", {
+            hyperlink: true,
+            headingStyleRange: "1-3",
+            showPageNumbers: true,
+          }),
+        ],
       },
       {
         properties: {
