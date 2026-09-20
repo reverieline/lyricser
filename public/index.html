@@ -226,7 +226,7 @@
                     <div class="panel-title">Add New Song</div>
                     <input type="text" id="new-song-name" placeholder="Song title or filter songs">
                     <div class="actions">
-                        <button id="create-song-btn" class="btn btn-small">Create</button>
+                        <button id="create-song-btn" class="btn btn-small" disabled>Create</button>
                     </div>
                 </div>
 
@@ -240,9 +240,9 @@
             <div class="actions">
                 <button id="save-song-btn" class="btn btn-small" disabled>Save Changes</button>
                 <button id="rename-song-btn" class="btn btn-small" disabled>Rename</button>
-                <button id="add-to-playlist-btn" class="btn btn-small" disabled>Add to Playlist</button>
                 <button id="delete-song-btn" class="btn btn-small btn-danger" disabled>Delete</button>
                 <button id="editor-help-btn" class="btn btn-small btn-help" type="button">Help</button>
+                <button id="add-to-playlist-btn" class="btn btn-small" disabled>Add to Playlist</button>
             </div>
             <div class="panel-content">
                 <textarea id="song-editor" placeholder="No song selected"></textarea>
@@ -345,9 +345,29 @@
                 return availableSongs.filter(song => song.toLowerCase().includes(query));
             }
 
+            function getNewSongFileName() {
+                const title = newSongNameEl.value.trim();
+                if (!title) {
+                    return '';
+                }
+
+                return title.endsWith('.txt') ? title : `${title}.txt`;
+            }
+
+            function isSongTitleUsed(fileName) {
+                const normalized = fileName.toLowerCase();
+                return availableSongs.some(song => song.toLowerCase() === normalized);
+            }
+
+            function updateCreateSongButtonState() {
+                const fileName = getNewSongFileName();
+                createSongBtn.disabled = !fileName || isSongTitleUsed(fileName);
+            }
+
             function renderSongList() {
                 songListEl.innerHTML = '';
                 const songsToShow = getFilteredSongs();
+                updateCreateSongButtonState();
 
                 if (songsToShow.length === 0) {
                     const emptyState = document.createElement('li');
@@ -384,8 +404,10 @@
 
                     songListEl.appendChild(li);
                 });
+
+                updateCreateSongButtonState();
             }
-            
+
             async function loadSongContent(songFileName) {
                 // Check for unsaved changes
                 if (hasUnsavedChanges && !confirm('You have unsaved changes. Continue without saving?')) {
@@ -701,15 +723,17 @@
             }
             
             async function createNewSong() {
-                const songName = newSongNameEl.value.trim();
-                if (!songName) {
+                const fileName = getNewSongFileName();
+                if (!fileName) {
                     alert('Please enter a song name.');
                     return;
                 }
-                
-                // Ensure the song name has a .txt extension
-                const fileName = songName.endsWith('.txt') ? songName : `${songName}.txt`;
-                
+
+                if (isSongTitleUsed(fileName)) {
+                    alert('That song already exists.');
+                    return;
+                }
+
                 try {
                     const response = await fetch('./api/songs', {
                         method: 'POST',
