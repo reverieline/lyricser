@@ -292,9 +292,15 @@ router.post('/api/generate-pptx', async (req, res) => {
     for (const songFile of playlist) {
       const filePath = path.join(LYRICS_DIR, songFile);
       const content = await fs.readFile(filePath, 'utf8');
-      
+
+      // Strip comment lines before splitting into slides
+      const contentWithoutComments = content
+        .split(/\r?\n/)
+        .filter(line => !line.trimStart().startsWith('#'))
+        .join('\n');
+
       // Split the content by slides (typically separated by blank lines)
-      const slides = content.split(/\n\s*\n/).filter(slide => slide.trim());
+      const slides = contentWithoutComments.split(/\n\s*\n/).filter(slide => slide.trim());
       
       // Add song title slide
       // const titleSlide = pres.addSlide();

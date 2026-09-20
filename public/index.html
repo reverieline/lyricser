@@ -155,6 +155,13 @@
             display: flex;
             gap: 10px;
         }
+
+        .editor-note {
+            margin-top: 8px;
+            font-size: 0.85em;
+            color: #666;
+            line-height: 1.4;
+        }
     </style>
 </head>
 <body>
@@ -191,6 +198,7 @@
             </div>
             <div class="panel-content">
                 <textarea id="song-editor" placeholder="No song selected"></textarea>
+                <div class="editor-note">Tip: start a line with <strong>#</strong> to keep it in the editor but exclude it from the generated presentation.</div>
             </div>
         </div>
         
